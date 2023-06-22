@@ -12,84 +12,86 @@ export CONFIG_MTK_COMBO_COMM=m
 export CONFIG_MTK_COMBO_COMM_UART=m
 export CONFIG_MTK_COMBO_COMM_SDIO=m
 export CONFIG_MT_WIFI_CHRDEV=m
-WLAN_CHIP_ID := mt7668
-
-PWD=$(shell pwd)
-DRIVER_DIR=$(PWD)
+WIFI_TARGET := mt76x8
 
 ifeq ($(HIF),)
     HIF=usb
 endif
 
 export CONFIG_MTK_COMBO_WIFI_HIF=$(HIF)
-MODULE_NAME := $(WLAN_CHIP_ID)_$(HIF)
+MODULE_NAME := wlan_$(WIFI_TARGET)_$(HIF)
 
-export CONFIG_MTK_PREALLOC_MEMORY=y
-
-#Mstar platform need use prealloc, 
-#but this need platform insmod prealloc.ko, not suit for all platforms
-ifeq "$(UTOPIA)" "true"
-export CFG_POWER_OFF_CTRL_SUPPORT=y
-ifeq ($(ANDROID),true)
-export CONFIG_MTK_PREALLOC_MEMORY=y
-endif
-endif
-
-WPA3_SUPPORT_VERSION := r-base q-base q-cn r-cn p-cn
-
-ifneq ($(filter $(WPA3_SUPPORT_VERSION), $(MTK_ANDROID_VERSION)),)
-$(warning wifi driver MTK_ANDROID_VERSION=$(MTK_ANDROID_VERSION))
-export CONFIG_MTK_WPA3_SUPPORT=y
-endif
 
 ##############################################################
 # Platform specific
 ##############################################################
 # Set default platform
-#PLATFORM:=AML905X2
-PLATFORM:=AML905X2
+PLATFORM = MT53XX
 
-ifeq ($(TARGET_PRODUCT), rango)
-$(warning TARGET_PRODUCT is $(TARGET_PRODUCT))
-PLATFORM := AML905X2
+ifeq ($(PLATFORM),)
+PLATFORM = MT53XX
 endif
 
+#- - - - -- - - - - - - - - -
+# MT53XX start
+#- - - - -- - - - - - - - - -
+ifeq ($(PLATFORM),MT53XX)
 
-ifeq ($(PLATFORM),AML905X2)
-$(warning PLATFORM is $(PLATFORM))
-KSRC:= $(shell pwd)/$(LINUX_SRC)
-$(warning PLATFORM is $(KSRC))
+# Sets DRIVER_PARTIAL_BUILD to y to compile driver only, otherwise set to n
+DRIVER_PARTIAL_BUILD=n
+# Set if 64 bit platform
+64BIT_MODE=true
+export WIFI_TARGET
+TARGET = LINUX
+
+ifeq ($(DRIVER_PARTIAL_BUILD),y)
+# *****For driver partial build*****
+LINUX_ROOT ?= $(word 1, $(subst /apollo/,/apollo /, $(shell pwd)))
+#    Modify the build parameters below to fit your build
+SYSBUILD_NAME=m-base
+RELEASE_NAME=mediatek/mt5891_eu_64
+KERNEL_VER=3.18
+KERNEL_CONFIG=mt5891_android_smp_mod_defconfig
+ifeq ($(64BIT_MODE),true)
+export 64BIT_MODE=true
+export KERNEL_64BIT=true
+export TOOL_CHAIN_64BIT=4.9.3
+endif
+#
+LINUX_SRC=$(LINUX_ROOT)/../android/$(SYSBUILD_NAME)/out/mediatek_linux/output/$(RELEASE_NAME)/rel/obj/kernel/linux_core/kernel/linux-$(KERNEL_VER)/$(KERNEL_CONFIG)_modules
+OBJ_ROOT ?= $(LINUX_ROOT)/../android/$(SYSBUILD_NAME)/out/mediatek_linux/output/$(RELEASE_NAME)/rel/obj
+export KERNEL_OBJ_ROOT=$(LINUX_SRC)/../..
+else
+# *****For system auto build*****
+LINUX_SRC=$(KERNEL_OBJ_ROOT)/$(KERNEL_VER)/$(KERNEL_CONFIG)_modules
+# 	overwrite $(OUT_STA_KO) for MT53XX platform
+OUT_STA_KO = $(OBJ_ROOT)/third_party/source/wlan/mtk/$(WIFI_TARGET)/drv_wlan/$(MTK_COMBO_CHIP)/wlan/$(MODULE_NAME).ko
 endif
 
-ifeq ($(PLATFORM),avatar)
-$(warning CFG_SUPPORT_FWPATH_PREFIX is $(CFG_SUPPORT_FWPATH_PREFIX))
-CFG_SUPPORT_FWPATH_PREFIX:=y
+include $(LINUX_ROOT)/linux_mts/mak/toolchain.mak
+ifeq ($(CROSS_COMPILE),)
+CROSS_COMPILE=/mtkoss/gnuarm/vfp_4.5.1_2.6.27_cortex-a9-rhel4/i686/bin/armv7a-mediatek451_001_vfp-linux-gnueabi-
 endif
-64BIT_MODE := false
-LINUX_ROOT ?= $(word 1, $(subst /apollo/,/apollo /, $(shell pwd -L)))
-
-
 ifeq "$(CC)" "gcc"
 CC ?= $(CROSS_COMPILE)gcc
 endif
-
 $(warning =============================================)
 $(warning wifi driver LINUX_SRC=$(LINUX_SRC))
 $(warning CROSS_COMPILE=$(CROSS_COMPILE))
-$(warning KERNEL_CROSS_COMPILE=$(KERNEL_CROSS_COMPILE))
 $(warning =============================================)
 
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# AML905X2 end
-#= = = = = = = = = = = = = = = = = = = = = = = = = = = =
+DRIVER_DIR=$(LINUX_ROOT)/third_party/source/wlan/mtk/$(WIFI_TARGET)/drv_wlan/$(MTK_COMBO_CHIP)/wlan
+
+endif
+#- - - - -- - - - - - - - - -
+# MT53XX end
+#- - - - -- - - - - - - - - -
 
 
 ##############################################################
 # Compile options
 ##############################################################
 #/***** Common part ******/
-# Extend stack limit size to avoid build error
-PLATFORM_FLAGS += -Wframe-larger-than=1400
 
 # Define maximum different channels supported for ieee80211_iface_combination setting.
 CFG_NUM_DIFFERENT_CHANNELS_STA=1
@@ -102,59 +104,24 @@ CFG_DRIVER_INITIAL_RUNNING_MODE=3
 # Define to enable Android wake_lock
 CFG_ENABLE_WAKE_LOCK=0
 
-# For wpa_supplicant w/o MTK priv lib
-# y: enable, n: disable
-CFG_ANDROID_AOSP_PRIV_CMD=y
+CFG_DEFAULT_DBG_LEVEL=0x7
 
-CFG_DEFAULT_DBG_LEVEL=0xF
+CFG_USB_REQ_TX_DATA_CNT=4
 
-CFG_TX_DIRECT_USB=1
-
-CFG_RX_DIRECT_USB=1
-
-CFG_USB_REQ_TX_DATA_FFA_CNT=6
-
-CFG_USB_REQ_TX_DATA_CNT=2
-
-CFG_USB_REQ_RX_DATA_CNT=4
+CFG_USB_REQ_RX_DATA_CNT=2
 
 CFG_ENABLE_EFUSE_MAC_ADDR=1
 
-#CFG_SUPPORT_SINGLE_SKU_LOCAL_DB=0
-
-#CFG_SUPPORT_DFS_MASTER=1
-
-CFG_SCAN_CHANNEL_SPECIFIED=1
-
-CFG_SUPPORT_ROAMING=0
-
-# Report all bss networks to cfg80211 when do p2p scan
-CFG_P2P_SCAN_REPORT_ALL_BSS=0
-
 # Support to change sta, p2p, ap interface names
 # y: enable, n: disable
-# eg. insmod wlan_mt7668_usb.ko sta=wlan p2p=p2p ap=ap
-CFG_DRIVER_INF_NAME_CHANGE=n
-
-CFG_CHIP_RESET_SUPPORT=0
-
-# 1: Enable SDIO RX Tasklet De-Aggregation
-# 0: Disable (default)
-CFG_SDIO_RX_AGG_TASKLET=0
-
-# Support disable beacon hint to avoid channel flag be changed.
-CFG_SUPPORT_DISABLE_BCN_HINTS=n
+# eg. insmod wlan_mt76x8_usb.ko sta=wlan p2p=p2p ap=ap
+CFG_DRIVER_INF_NAME_CHANGE=y
 
 #/***** Platform dependent part ******/
-ifeq ($(PLATFORM),AML905X2)
-CFG_DRIVER_INITIAL_RUNNING_MODE=3
-CFG_SUPPORT_SINGLE_SKU_LOCAL_DB=0
+ifeq ($(PLATFORM),MT53XX)
 endif
 
-ifeq ($(WOW_WAKE_UP), 1)
-PLATFORM_FLAGS += -DCFG_SUPPORT_WOW_EINT=1
-PLATFORM_FLAGS += -DCFG_SUPPORT_MAGIC_PKT_VENDOR_EVENT=1
-endif
+
 
 #/***** Manage configs into compile options ******/
 ifneq ($(CFG_NUM_DIFFERENT_CHANNELS_STA),)
@@ -177,28 +144,12 @@ ifneq ($(CFG_DEFAULT_DBG_LEVEL),)
 PLATFORM_FLAGS += -DCFG_DEFAULT_DBG_LEVEL=$(CFG_DEFAULT_DBG_LEVEL)
 endif
 
-ifneq ($(CFG_TX_DIRECT_USB),)
-PLATFORM_FLAGS += -DCFG_TX_DIRECT_USB=$(CFG_TX_DIRECT_USB)
-endif
-
-ifneq ($(CFG_RX_DIRECT_USB),)
-PLATFORM_FLAGS += -DCFG_RX_DIRECT_USB=$(CFG_RX_DIRECT_USB)
-endif
-
-ifneq ($(CFG_USB_REQ_TX_DATA_FFA_CNT),)
-PLATFORM_FLAGS += -DCFG_USB_REQ_TX_DATA_FFA_CNT=$(CFG_USB_REQ_TX_DATA_FFA_CNT)
-endif
-
 ifneq ($(CFG_USB_REQ_TX_DATA_CNT),)
 PLATFORM_FLAGS += -DCFG_USB_REQ_TX_DATA_CNT=$(CFG_USB_REQ_TX_DATA_CNT)
 endif
 
 ifneq ($(CFG_USB_REQ_RX_DATA_CNT),)
 PLATFORM_FLAGS += -DCFG_USB_REQ_RX_DATA_CNT=$(CFG_USB_REQ_RX_DATA_CNT)
-endif
-
-ifneq ($(CFG_SUPPORT_ROAMING),)
-PLATFORM_FLAGS += -DCFG_SUPPORT_ROAMING=$(CFG_SUPPORT_ROAMING)
 endif
 
 ifneq ($(CFG_ENABLE_EFUSE_MAC_ADDR),)
@@ -209,59 +160,6 @@ ifeq ($(CFG_DRIVER_INF_NAME_CHANGE), y)
 PLATFORM_FLAGS += -DCFG_DRIVER_INF_NAME_CHANGE
 endif
 
-ifeq ($(CFG_ANDROID_AOSP_PRIV_CMD), y)
-PLATFORM_FLAGS += -DCFG_ANDROID_AOSP_PRIV_CMD
-endif
-
-ifneq ($(CFG_SUPPORT_SINGLE_SKU_LOCAL_DB),)
-PLATFORM_FLAGS += -DCFG_SUPPORT_SINGLE_SKU_LOCAL_DB=$(CFG_SUPPORT_SINGLE_SKU_LOCAL_DB)
-endif
-
-ifneq ($(CFG_SUPPORT_DFS_MASTER),)
-PLATFORM_FLAGS += -DCFG_SUPPORT_DFS_MASTER=$(CFG_SUPPORT_DFS_MASTER)
-endif
-
-ifneq ($(CFG_P2P_SCAN_REPORT_ALL_BSS),)
-PLATFORM_FLAGS += -DCFG_P2P_SCAN_REPORT_ALL_BSS=$(CFG_P2P_SCAN_REPORT_ALL_BSS)
-endif
-
-ifneq ($(CFG_SCAN_CHANNEL_SPECIFIED),)
-PLATFORM_FLAGS += -DCFG_SCAN_CHANNEL_SPECIFIED=$(CFG_SCAN_CHANNEL_SPECIFIED)
-endif
-
-ifneq ($(CFG_CHIP_RESET_SUPPORT),)
-PLATFORM_FLAGS += -DCFG_CHIP_RESET_SUPPORT=$(CFG_CHIP_RESET_SUPPORT)
-endif
-
-ifneq ($(CFG_SDIO_RX_AGG_TASKLET),)
-PLATFORM_FLAGS += -DCFG_SDIO_RX_AGG_TASKLET=$(CFG_SDIO_RX_AGG_TASKLET)
-endif
-
-ifeq ($(CFG_SUPPORT_DISABLE_BCN_HINTS), y)
-PLATFORM_FLAGS += -DCFG_SUPPORT_DISABLE_BCN_HINTS
-endif
-
-#For adjust channel request interval when ais join net work
-ifeq ($(CFG_SUPPORT_ADJUST_JOIN_CH_REQ_INTERVAL),y)
-PLATFORM_FLAGS += -DCFG_SUPPORT_ADJUST_JOIN_CH_REQ_INTERVAL
-endif
-
-ifeq ($(CFG_SUPPORT_P2P_GO_KEEP_RATE_SETTING), y)
-PLATFORM_FLAGS += -DCFG_SUPPORT_P2P_GO_KEEP_RATE_SETTING
-endif
-
-ifeq ($(CFG_SUPPORT_P2P_GO_11B_RATE),y)
-PLATFORM_FLAGS += -DCFG_SUPPORT_P2P_GO_11B_RATE
-endif
-
-ifeq ($(CFG_SUPPORT_P2P_OPEN_SECURITY),y)
-PLATFORM_FLAGS += -DCFG_SUPPORT_P2P_OPEN_SECURITY
-endif
-
-ifeq ($(CFG_SUPPORT_FWPATH_PREFIX),y)
-PLATFORM_FLAGS += -DCFG_SUPPORT_FWPATH_PREFIX
-endif
-
 ##############################################################
 # Compile settings
 ##############################################################
@@ -269,108 +167,57 @@ endif
 all: driver
 
 driver:
-	+make -C $(KSRC) M=$(shell pwd)/$(DRIVER_DIR) PLATFORM_FLAGS="$(PLATFORM_FLAGS)" WLAN_CHIP_ID=$(WLAN_CHIP_ID) modules
-ifeq ($(PLATFORM),MSTAR)
-	$(STRIP) --strip-unneeded $(MODULE_NAME).ko
-endif
-ifeq ($(PLATFORM),AML905X2)
+	+cd $(DRIVER_DIR) && make -C $(LINUX_SRC) M=$(DRIVER_DIR) MODULE_NAME=$(MODULE_NAME) PLATFORM_FLAGS="$(PLATFORM_FLAGS)" modules
+ifeq ($(PLATFORM),MT53XX)
 ifeq ($(DRIVER_PARTIAL_BUILD), y)
-	@cd $(DRIVER_DIR) && $(STRIP) --strip-unneeded $(MODULE_NAME).ko
+	@cd $(DRIVER_DIR) && $(CROSS_COMPILE)strip --strip-unneeded $(MODULE_NAME).ko
 else
-	$(STRIP) --strip-unneeded $(OUT_STA_KO)
-ifeq ($(CONFIG_MTK_PREALLOC_MEMORY), y)
-	$(STRIP) --strip-unneeded $(OUT_STA_KO_DIR)/$(MODULE_NAME)_prealloc.ko
-endif
-endif
-endif
-
-##############################################################
-# Post processing
-##############################################################
-
-#= = = = = = = = = = = = = = = = = = = = = = = = = = = =
-# AML905X2 start
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - -
-ifeq ($(PLATFORM),AML905X2)
-ifneq ($(DRIVER_PARTIAL_BUILD), y)
 ifneq ($(ANDROID),true)
-	if [ ! -d $(OUTPUT_ROOT)/basic/wifi_ko ]; then \
-		mkdir -p $(OUTPUT_ROOT)/basic/wifi_ko/; \
+	if [ ! -d $(THIRDPARTY_LIB_ROOT)/wlan/$(KERNEL_VER_FOR_3RD)/mtk/$(WIFI_TARGET) ]; then \
+		mkdir -p $(THIRDPARTY_LIB_ROOT)/wlan/$(KERNEL_VER_FOR_3RD)/mtk/$(WIFI_TARGET)/; \
 	fi
-	if [ -d $(OUTPUT_ROOT)/basic/wifi_ko ]; then \
-		cp -f $(OUT_STA_KO) $(OUTPUT_ROOT)/basic/wifi_ko/$(MODULE_NAME).ko; \
-		$(KERNEL_STRIP) $(STRIP_FLAG) $(OUTPUT_ROOT)/basic/wifi_ko/$(MODULE_NAME).ko; \
-	fi
+	cp -f $(OUT_STA_KO) $(THIRDPARTY_LIB_ROOT)/wlan/$(KERNEL_VER_FOR_3RD)/mtk/$(WIFI_TARGET)/$(MODULE_NAME).ko
 else
-	if [ ! -d $(OUTPUT_ROOT)/basic/modules ]; then \
-		mkdir -p $(OUTPUT_ROOT)/basic/modules/; \
+ifeq "$(BUILD_CFG)" "debug"
+	echo "ANDROID_VERSION=$(ANDROID_VERSION)"
+	if [ ! -d $(LINUX_ROOT)/../android/$(ANDROID_VERSION)/vendor/mediatek/open/hardware/prebuilt/wifi/$(ANDROID_IC_SETTING)/dbg ]; then \
+		mkdir -p $(LINUX_ROOT)/../android/$(ANDROID_VERSION)/vendor/mediatek/open/hardware/prebuilt/wifi/$(ANDROID_IC_SETTING)/dbg; \
 	fi
-ifeq ($(MUL_WIFI_HW_COMPATIBLE), true)
+	cp -f $(OUT_STA_KO) $(LINUX_ROOT)/../android/$(ANDROID_VERSION)/vendor/mediatek/open/hardware/prebuilt/wifi/$(ANDROID_IC_SETTING)/dbg/$(MODULE_NAME).ko
+
 	if [ -d $(OUTPUT_ROOT)/basic/modules ]; then \
-		cp -f $(OUT_STA_KO) $(OUTPUT_ROOT)/basic/modules/wlan_mt7668.ko; \
+		cp -f $(OUT_STA_KO) $(OUTPUT_ROOT)/basic/modules/wlan.ko; \
 	fi
 else
+	if [ ! -d $(LINUX_ROOT)/../android/$(ANDROID_VERSION)/vendor/mediatek/open/hardware/prebuilt/wifi/$(ANDROID_IC_SETTING) ]; then \
+		mkdir -p $(LINUX_ROOT)/../android/$(ANDROID_VERSION)/vendor/mediatek/open/hardware/prebuilt/wifi/$(ANDROID_IC_SETTING); \
+	fi
+	cp -f $(OUT_STA_KO) $(LINUX_ROOT)/../android/$(ANDROID_VERSION)/vendor/mediatek/open/hardware/prebuilt/wifi/$(ANDROID_IC_SETTING)/$(MODULE_NAME).ko
+
 	if [ -d $(OUTPUT_ROOT)/basic/modules ]; then \
 		cp -f $(OUT_STA_KO) $(OUTPUT_ROOT)/basic/modules/wlan.ko; \
 	fi
 endif
-ifeq ($(CONFIG_MTK_PREALLOC_MEMORY), y)
-ifeq ($(MUL_WIFI_HW_COMPATIBLE), true)
-	if [ -d $(OUTPUT_ROOT)/basic/modules ]; then \
-		cp -f $(OUT_STA_KO_DIR)/$(MODULE_NAME)_prealloc.ko $(OUTPUT_ROOT)/basic/modules/mtprealloc_mt7668.ko; \
-	fi
-else
-	if [ -d $(OUTPUT_ROOT)/basic/modules ]; then \
-		cp -f $(OUT_STA_KO_DIR)/$(MODULE_NAME)_prealloc.ko $(OUTPUT_ROOT)/basic/modules/mtprealloc.ko; \
-	fi
 endif
 endif
-endif # ifneq ($(ANDROID),true)
-ifeq ($(S_PLATFORM),true)
-	if [ -d $(OUTPUT_ROOT)/basic/modules ]; then \
-		cp -f $(ANDROID_BUILD_TOP)/vendor/mediatek/open/hardware/prebuilt/wifi/WIFI_RAM_CODE_MT7668.bin $(OUTPUT_ROOT)/basic/modules; \
-		cp -f $(ANDROID_BUILD_TOP)/vendor/mediatek/open/hardware/prebuilt/wifi/WIFI_RAM_CODE2_USB_MT7668.bin $(OUTPUT_ROOT)/basic/modules; \
-		cp -f $(ANDROID_BUILD_TOP)/vendor/mediatek/open/hardware/prebuilt/wifi/wifi.cfg $(OUTPUT_ROOT)/basic/modules; \
-		cp -f $(ANDROID_BUILD_TOP)/vendor/mediatek/open/hardware/prebuilt/wifi/TxPwrLimit_MT76x8.dat $(OUTPUT_ROOT)/basic/modules; \
-		cp -f $(ANDROID_BUILD_TOP)/vendor/mediatek/open/hardware/prebuilt/bt/mt7668/mt7668_patch_e1_hdr.bin $(OUTPUT_ROOT)/basic/modules; \
-		cp -f $(ANDROID_BUILD_TOP)/vendor/mediatek/open/hardware/prebuilt/bt/mt7668/mt7668_patch_e2_hdr.bin $(OUTPUT_ROOT)/basic/modules; \
-	fi
 endif
-endif # ifneq ($(DRIVER_PARTIAL_BUILD), y)
-endif # ifeq ($(PLATFORM),AML905X2)
-#- - - - - - - - - - - - - - - - - - - - - - - - - - - -
-# AML905X2 end
-#= = = = = = = = = = = = = = = = = = = = = = = = = = = =
+#	@cd $(DRIVER_DIR) && cp $(MODULES_NAME)_$(HIF).ko $(MODULES_NAME).ko
+
+#common:
+#	+cd $(COMMON_DIR) && make -C $(LINUX_SRC) M=$(COMMON_DIR) modules
+#	@cat $(COMMON_DIR)/Module.symvers >> $(LINUX_SRC)/Module.symvers
 
 clean: driver_clean
-ifeq ($(PLATFORM),AML905X2)
-ifeq ($(S_PLATFORM),true)
-	if [ -d $(OUTPUT_ROOT)/basic/modules ]; then \
-		rm -f $(OUTPUT_ROOT)/basic/modules/WIFI_RAM_CODE_MT7668.bin; \
-		rm -f $(OUTPUT_ROOT)/basic/modules/WIFI_RAM_CODE2_USB_MT7668.bin; \
-		rm -f $(OUTPUT_ROOT)/basic/modules/wifi.cfg; \
-		rm -f $(OUTPUT_ROOT)/basic/modules/TxPwrLimit_MT76x8.dat; \
-		rm -f $(OUTPUT_ROOT)/basic/modules/mt7668_patch_e1_hdr.bin; \
-		rm -f $(OUTPUT_ROOT)/basic/modules/mt7668_patch_e2_hdr.bin; \
-	fi
-endif
-endif
+
+#symvers_clean: driver_clean
+#	@cp $(LINUX_SRC)/Module.symvers.original $(LINUX_SRC)/Module.symvers
 
 driver_clean:
-ifneq ($(ANDROID),true)
-	rm -rf $(THIRDPARTY_LIB_ROOT)/wlan
-endif
-	if [ -d $(DRIVER_DIR) ]; then \
-		cd $(DRIVER_DIR); \
-		find -L \
-		\( -name '*.ko' -o -name '.*.cmd' \
-		-o -name '*.o' -o -name '*.mod.c' \
-		-o -name '*.o.d' \
-		-o -name 'modules.order' \
-		-o -name 'Module.symvers' \) -type f -print | xargs rm -f; \
-		find -L \( -name '.tmp_versions' \) -print | xargs rm -rf {}; \
-	fi
+	cd $(DRIVER_DIR) && make -C $(LINUX_SRC) M=$(DRIVER_DIR) MODULE_NAME=$(MODULE_NAME) clean
+	if [ -e $(DRIVER_DIR)/$(MODULE_NAME).ko ]; then rm $(DRIVER_DIR)/$(MODULE_NAME).ko; fi;
 
+#common_clean:
+#	cd $(COMMON_DIR) && make -C $(LINUX_SRC) M=$(COMMON_DIR) clean
 
 .PHONY: all clean driver driver_clean
 
