@@ -1,6 +1,6 @@
 # MT7668
 
-## Porting Guide 
+## Porting Guide (这是无关紧要的)
 
 在 WiFi driver 的目录中有 3 个 Makefile，我们使用的是 Makefile.ce。Porting 到不同的平
 台，需要修改 Makefile.ce。需要修改的有:
