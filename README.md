@@ -1,6 +1,6 @@
 # MT7668
 
-## Porting Guide 
+## Porting Guide (这是无关紧要的)
 
 在 WiFi driver 的目录中有 3 个 Makefile，我们使用的是 Makefile.ce。Porting 到不同的平
 台，需要修改 Makefile.ce。需要修改的有:
@@ -64,3 +64,13 @@ ko：mt7668tu.ko 和 mt7668tu_prealloc.ko。
 
    如果关闭宏 CONFIG_MTK_PREALLOC_MEMORY，只会生成 mt7668tu.ko，WiFi 申请资
 源只在用到时才申请
+
+## 代码来源
+
+代码是从多个来源精心挑选的：
+
+| 代码来源 |
+| :---: |
+| [Google Coral](https://coral.googlesource.com/mt7668-wifi-mod) |
+| [khadas](https://github.com/khadas/android_hardware_wifi_mtk_drivers_mt7668) |
+| [ChalesYu](https://gitlab.com/ChalesYu/mt7668sn) |
