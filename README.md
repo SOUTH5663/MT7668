@@ -64,3 +64,13 @@ ko：mt7668tu.ko 和 mt7668tu_prealloc.ko。
 
    如果关闭宏 CONFIG_MTK_PREALLOC_MEMORY，只会生成 mt7668tu.ko，WiFi 申请资
 源只在用到时才申请
+
+## 代码来源
+
+代码是从多个来源精心挑选的：
+
+| 代码来源 |
+| :---: |
+| [Google Coral](https://coral.googlesource.com/mt7668-wifi-mod) |
+| [khadas](https://github.com/khadas/android_hardware_wifi_mtk_drivers_mt7668) |
+| [ChalesYu](https://gitlab.com/ChalesYu/mt7668sn) |
