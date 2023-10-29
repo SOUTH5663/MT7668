@@ -1,6 +1,6 @@
 LINUX_SRC=/lib/modules/$(shell uname -r)/build
 
-export CONFIG_MTK_COMBO_PLATFORM=x86
+export CONFIG_MTK_COMBO_PLATFORM=arm64
 export MTK_COMBO_CHIP=MT6632
 
 PWD=$(shell pwd)
@@ -17,14 +17,14 @@ export CONFIG_MT_WIFI_CHRDEV=m
 
 # pcie | sdio | usb
 ifeq ($(hif),)
-    hif=usb
+    hif=sdio
 endif
 
-MODULES_NAME := wlan_$(shell echo $(MTK_COMBO_CHIP) | tr A-Z a-z)
+MODULES_NAME := wlan_mt76x8
 
 export CONFIG_MTK_COMBO_WIFI_HIF=$(hif)
 
-export CONFIG_MTK_COMBO_PLAT_PATH=x86
+export CONFIG_MTK_COMBO_PLAT_PATH=arm64
 
 ##############################################################
 # Compile options
